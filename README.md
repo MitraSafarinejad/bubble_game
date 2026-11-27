@@ -120,3 +120,13 @@ npm run build
 ## License
 
 License information will be added when a license is selected for the project.
+
+## Keyboard Controls
+
+| Key | Action |
+|---|---|
+| `1`–`3` | Select a mode on the start screen |
+| `Enter` | Start or resume the game |
+| `1`–`9` | Pop the numbered visible bubble |
+| `P` or `Escape` | Pause the game |
+| `M` | Toggle sound |

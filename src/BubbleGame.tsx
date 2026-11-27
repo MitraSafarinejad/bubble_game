@@ -11,6 +11,7 @@ interface Bubble {
   wobble: number;
   wobbleSpeed: number;
   kind: 'normal' | 'gold' | 'time' | 'burst';
+  keySlot: number;
   popping: boolean;
 }
 
@@ -29,9 +30,9 @@ type Screen = 'start' | 'playing' | 'paused' | 'result';
 type Mode = 'calm' | 'classic' | 'rush';
 
 const MODE_CONFIG = {
-  calm: { label: 'آرام', duration: 45, spawn: 1100, speed: 0.65, max: 10 },
-  classic: { label: 'کلاسیک', duration: 60, spawn: 850, speed: 1, max: 14 },
-  rush: { label: 'هیجان', duration: 30, spawn: 520, speed: 1.45, max: 18 },
+  calm: { label: 'Calm', duration: 45, spawn: 1100, speed: 0.65, max: 10 },
+  classic: { label: 'Classic', duration: 60, spawn: 850, speed: 1, max: 14 },
+  rush: { label: 'Rush', duration: 30, spawn: 520, speed: 1.45, max: 18 },
 } as const;
 
 const COLORS = ['#70B7FF', '#9B7CF4', '#FF85A6', '#FFB86B', '#5DD6B4', '#70D9E8', '#D98FF7'];
@@ -70,11 +71,11 @@ function BubbleGame() {
       oscillator.start();
       oscillator.stop(context.currentTime + 0.14);
     } catch {
-      // صوت اختیاری است و نباید روند بازی را مختل کند
+      // Sound is optional and should not disrupt the game
     }
   }, [soundOn]);
 
-  const createBubble = useCallback((randomKind = true): Bubble => {
+  const createBubble = useCallback((randomKind = true, keySlot = 0): Bubble => {
     const size = 48 + Math.random() * 58;
     const roll = randomKind ? Math.random() : 1;
     const kind: Bubble['kind'] = roll > 0.94 ? 'time' : roll > 0.88 ? 'burst' : roll > 0.82 ? 'gold' : 'normal';
@@ -94,6 +95,7 @@ function BubbleGame() {
       wobble: Math.random() * Math.PI * 2,
       wobbleSpeed: 0.012 + Math.random() * 0.018,
       kind,
+      keySlot,
       popping: false,
     };
   }, [mode]);
@@ -131,8 +133,8 @@ function BubbleGame() {
     setCombo(0);
     setTimeLeft(config.duration);
     setParticles([]);
-    const initial = Array.from({ length: 6 }, () => {
-      const bubble = createBubble();
+    const initial = Array.from({ length: 6 }, (_, index) => {
+      const bubble = createBubble(true, index + 1);
       bubble.y = 120 + Math.random() * Math.max(140, window.innerHeight - 300);
       return bubble;
     });
@@ -161,7 +163,10 @@ function BubbleGame() {
       setBubbles(previous => {
         const active = previous.filter(bubble => !bubble.popping);
         if (active.length >= config.max) return previous;
-        return [...previous, createBubble()];
+        const usedSlots = new Set(active.map(bubble => bubble.keySlot));
+        let keySlot = 1;
+        while (usedSlots.has(keySlot) && keySlot < 9) keySlot++;
+        return [...previous, createBubble(true, keySlot <= 9 ? keySlot : 0)];
       });
     }, config.spawn);
     return () => window.clearInterval(spawn);
@@ -208,7 +213,7 @@ function BubbleGame() {
   const popBubble = useCallback((bubble: Bubble) => {
     if (screen !== 'playing' || bubble.popping) return;
     createParticles(bubble);
-    setBubbles(previous => previous.map(item => item.id === bubble.id ? { ...item, popping: true } : item));
+    setBubbles(previous => previous.map(item => item.id === bubble.id ? { ...item, keySlot: 0, popping: true } : item));
     window.setTimeout(() => {
       setBubbles(previous => previous.filter(item => item.id !== bubble.id));
     }, 240);
@@ -246,28 +251,91 @@ function BubbleGame() {
         targets.forEach(createParticles);
         setScore(current => current + targets.length * 10);
         setPopped(current => current + targets.length);
-        return previous.map(item => targets.some(target => target.id === item.id) ? { ...item, popping: true } : item);
+        return previous.map(item => targets.some(target => target.id === item.id) ? { ...item, keySlot: 0, popping: true } : item);
       });
     }
   }, [combo, createParticles, mode, playSound, screen]);
 
   const level = Math.floor(score / 500) + 1;
   const progress = Math.min(100, (score % 500) / 5);
+  const keyboardTargets = bubbles
+    .filter(bubble => !bubble.popping && bubble.keySlot > 0)
+    .sort((a, b) => a.keySlot - b.keySlot)
+    .slice(0, 9);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+
+      if (screen === 'start') {
+        if (event.key === '1') setMode('calm');
+        if (event.key === '2') setMode('classic');
+        if (event.key === '3') setMode('rush');
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          startGame();
+        }
+        return;
+      }
+
+      if (screen === 'paused') {
+        if (event.key === 'Escape' || event.key.toLowerCase() === 'p' || event.key === 'Enter') {
+          event.preventDefault();
+          setScreen('playing');
+        }
+        return;
+      }
+
+      if (screen === 'playing') {
+        if (event.key === 'Escape' || event.key.toLowerCase() === 'p') {
+          event.preventDefault();
+          setScreen('paused');
+          return;
+        }
+        if (event.key.toLowerCase() === 'm') {
+          event.preventDefault();
+          setSoundOn(value => !value);
+          return;
+        }
+
+        const targets = bubbles
+          .filter(bubble => !bubble.popping && bubble.keySlot > 0)
+          .sort((a, b) => a.keySlot - b.keySlot);
+
+        if (/^[1-9]$/.test(event.key)) {
+          event.preventDefault();
+          const bubble = targets.find(item => item.keySlot === Number(event.key));
+          if (bubble) popBubble(bubble);
+        } else if (event.key === 'Enter' && targets[0]) {
+          event.preventDefault();
+          popBubble(targets[0]);
+        }
+      }
+
+      if (screen === 'result' && event.key === 'Enter') {
+        event.preventDefault();
+        startGame();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [bubbles, popBubble, screen, startGame]);
 
   return (
-    <main className="game-shell" dir="rtl">
+    <main className="game-shell">
       {screen === 'start' && (
         <section className="start-screen">
           <div className="ambient ambient-one" />
           <div className="ambient ambient-two" />
           <div className="brand-mark"><span>🫧</span></div>
           <div className="start-copy">
-            <p className="eyebrow">بازی چند حالتی</p>
-            <h1>حباب‌بازی</h1>
-            <p>حباب‌ها را لمس کن، امتیاز جمع کن و رکوردت را شکست بده.</p>
+            <p className="eyebrow">Multi-Mode Game</p>
+            <h1>Bubble Game</h1>
+            <p>Tap the bubbles, score points, and beat your high score.</p>
           </div>
 
-          <div className="mode-grid" aria-label="انتخاب حالت بازی">
+          <div className="mode-grid" aria-label="Select game mode">
             {(Object.keys(MODE_CONFIG) as Mode[]).map(item => {
               const config = MODE_CONFIG[item];
               return (
@@ -278,55 +346,65 @@ function BubbleGame() {
                   onClick={() => setMode(item)}
                 >
                   <span className="mode-icon">{item === 'calm' ? '🌿' : item === 'classic' ? '🫧' : '⚡'}</span>
-                  <span><strong>{config.label}</strong><small>{config.duration} ثانیه</small></span>
+                  <span><strong>{config.label}</strong><small>{config.duration} seconds</small></span>
                 </button>
               );
             })}
           </div>
 
-          <button type="button" className="primary-button" onClick={startGame}>شروع بازی <span>←</span></button>
-          <div className="best-chip"><span>بهترین رکورد</span><strong>{best}</strong></div>
+          <button type="button" className="primary-button" onClick={startGame}>Start Game <span>←</span></button>
+          <div className="best-chip"><span>Best Score</span><strong>{best}</strong></div>
         </section>
       )}
 
       {screen === 'playing' && (
         <section className="play-screen">
           <div className="hud">
-            <div className="hud-pill score-pill"><span>امتیاز</span><strong>{score}</strong></div>
+            <div className="hud-pill score-pill"><span>Score</span><strong>{score}</strong></div>
             <div className="time-ring" style={{ '--progress': `${(timeLeft / MODE_CONFIG[mode].duration) * 360}deg` } as CSSProperties}>
-              <div><strong>{timeLeft}</strong><small>ثانیه</small></div>
+              <div><strong>{timeLeft}</strong><small>seconds</small></div>
             </div>
-            <button type="button" className="icon-button" aria-label="توقف" onClick={() => setScreen('paused')}>Ⅱ</button>
+            <button type="button" className="icon-button" aria-label="Pause" onClick={() => setScreen('paused')}>Ⅱ</button>
           </div>
 
           <div className="level-track">
-            <span>سطح {level}</span>
+            <span>Level {level}</span>
             <div><i style={{ width: `${progress}%` }} /></div>
           </div>
 
           {showCombo && <div className="combo-badge"><strong>COMBO ×{combo}</strong></div>}
 
-          {bubbles.map(bubble => (
-            <button
-              key={bubble.id}
-              type="button"
-              aria-label="حباب"
-              onPointerDown={() => popBubble(bubble)}
-              className={`bubble bubble-${bubble.kind} ${bubble.popping ? 'popping' : ''}`}
-              style={{
-                left: bubble.x,
-                top: bubble.y,
-                width: bubble.size,
-                height: bubble.size,
-                '--bubble-color': bubble.color,
-              } as CSSProperties}
-            >
-              {bubble.kind === 'gold' && <span>★</span>}
-              {bubble.kind === 'time' && <span>+۳</span>}
-              {bubble.kind === 'burst' && <span>✦</span>}
-              <i />
-            </button>
-          ))}
+          {bubbles.map(bubble => {
+            const keyNumber = bubble.keySlot;
+            return (
+              <button
+                key={bubble.id}
+                type="button"
+                aria-label="Bubble"
+                onPointerDown={() => popBubble(bubble)}
+                className={`bubble bubble-${bubble.kind} ${bubble.popping ? 'popping' : ''}`}
+                style={{
+                  left: bubble.x,
+                  top: bubble.y,
+                  width: bubble.size,
+                  height: bubble.size,
+                  '--bubble-color': bubble.color,
+                } as CSSProperties}
+              >
+                {keyNumber > 0 && <b className="keyboard-key">{keyNumber}</b>}
+                {bubble.kind === 'gold' && <span>★</span>}
+                {bubble.kind === 'time' && <span>+3</span>}
+                {bubble.kind === 'burst' && <span>✦</span>}
+                <i />
+              </button>
+            );
+          })}
+
+          <div className="keyboard-help" aria-label="Keyboard controls">
+            <span><kbd>1–9</kbd> Pop</span>
+            <span><kbd>P</kbd> Pause</span>
+            <span><kbd>M</kbd> Sound</span>
+          </div>
 
           {particles.map(particle => (
             <i key={particle.id} className="particle" style={{
@@ -346,10 +424,10 @@ function BubbleGame() {
         <div className="overlay">
           <section className="dialog">
             <div className="dialog-icon">☕</div>
-            <p className="eyebrow">بازی متوقف شد</p>
-            <h2>استراحت کوتاه</h2>
-            <button type="button" className="primary-button" onClick={() => setScreen('playing')}>ادامه</button>
-            <button type="button" className="secondary-button" onClick={() => setScreen('start')}>بازگشت به خانه</button>
+            <p className="eyebrow">Game Paused</p>
+            <h2>Short Break</h2>
+            <button type="button" className="primary-button" onClick={() => setScreen('playing')}>Continue</button>
+            <button type="button" className="secondary-button" onClick={() => setScreen('start')}>Back to Home</button>
           </section>
         </div>
       )}
@@ -357,20 +435,20 @@ function BubbleGame() {
       {screen === 'result' && (
         <section className="result-screen">
           <div className="result-badge">{score >= best && score > 0 ? '🏆' : '🫧'}</div>
-          <p className="eyebrow">بازی تمام شد</p>
-          <h2>{score >= best && score > 0 ? 'رکورد جدید!' : 'نتیجه عالی!'}</h2>
+          <p className="eyebrow">Game Over</p>
+          <h2>{score >= best && score > 0 ? 'New Record!' : 'Great Result!'}</h2>
           <div className="score-card">
-            <span>امتیاز نهایی</span>
+            <span>Final Score</span>
             <strong>{score}</strong>
-            <div><b>{popped}</b><small>حباب زده‌شده</small></div>
+            <div><b>{popped}</b><small>Bubbles Popped</small></div>
           </div>
-          <button type="button" className="primary-button" onClick={startGame}>دوباره بازی کن</button>
-          <button type="button" className="secondary-button" onClick={() => setScreen('start')}>تغییر حالت</button>
+          <button type="button" className="primary-button" onClick={startGame}>Play Again</button>
+          <button type="button" className="secondary-button" onClick={() => setScreen('start')}>Change Mode</button>
         </section>
       )}
 
       {screen !== 'start' && screen !== 'result' && (
-        <button type="button" className={`sound-button ${soundOn ? '' : 'muted'}`} aria-label="صدا" onClick={() => setSoundOn(value => !value)}>
+        <button type="button" className={`sound-button ${soundOn ? '' : 'muted'}`} aria-label="Sound" onClick={() => setSoundOn(value => !value)}>
           {soundOn ? '♪' : '×'}
         </button>
       )}

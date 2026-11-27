@@ -59,7 +59,7 @@ body {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  direction: rtl;
+  direction: ltr;
   color: var(--ink);
   background:
     radial-gradient(circle at 12% 12%, rgba(255,255,255,.95) 0 5%, transparent 22%),
@@ -123,7 +123,7 @@ body {
 .best-chip strong { min-width: 48px; border-radius: 999px; padding: 6px 10px; background: rgba(255,255,255,.7); color: #59658e; }
 .play-screen { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(circle at 50% 110%, rgba(255,255,255,.8), transparent 40%); }
 .hud { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 16px; right: 16px; z-index: 50; display: grid; grid-template-columns: 1fr 72px 1fr; align-items: start; direction: ltr; }
-.hud-pill { direction: rtl; width: fit-content; min-width: 92px; height: 52px; border-radius: 17px; background: rgba(255,255,255,.82); backdrop-filter: blur(12px); box-shadow: 0 8px 24px rgba(91,112,166,.10); display: flex; flex-direction: column; justify-content: center; padding: 0 14px; }
+.hud-pill { direction: ltr; width: fit-content; min-width: 92px; height: 52px; border-radius: 17px; background: rgba(255,255,255,.82); backdrop-filter: blur(12px); box-shadow: 0 8px 24px rgba(91,112,166,.10); display: flex; flex-direction: column; justify-content: center; padding: 0 14px; }
 .hud-pill span { font-size: 10px; color: #9a9fb1; }
 .hud-pill strong { font-size: 20px; color: #52618e; direction: ltr; }
 .time-ring { --progress: 360deg; justify-self: center; width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(#7984c9 var(--progress), rgba(255,255,255,.72) 0); box-shadow: 0 8px 24px rgba(91,112,166,.12); }
@@ -133,7 +133,7 @@ body {
 .time-ring small { margin-top: 4px; font-size: 9px; color: #9b9fb0; }
 .icon-button, .sound-button { border: 0; cursor: pointer; background: rgba(255,255,255,.82); color: #69759a; box-shadow: 0 8px 24px rgba(91,112,166,.10); }
 .icon-button { justify-self: end; direction: ltr; width: 52px; height: 52px; border-radius: 17px; font-weight: 900; }
-.level-track { position: absolute; top: 104px; left: 50%; z-index: 40; width: 160px; transform: translateX(-50%); text-align: center; direction: rtl; }
+.level-track { position: absolute; top: 104px; left: 50%; z-index: 40; width: 160px; transform: translateX(-50%); text-align: center; direction: ltr; }
 .level-track span { display: block; margin-bottom: 5px; color: #8992ac; font-size: 11px; font-weight: 800; }
 .level-track div { height: 5px; border-radius: 99px; overflow: hidden; background: rgba(255,255,255,.75); }
 .level-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #75c4df, #9b86df); transition: width .25s ease; }
@@ -164,6 +164,61 @@ body {
 .score-card > strong { margin: 4px 0 12px; color: #52618e; font-size: 48px; direction: ltr; }
 .score-card div { border-top: 1px solid rgba(122,131,163,.10); padding-top: 12px; display: flex; align-items: baseline; justify-content: center; gap: 8px; }
 .score-card b { color: #7783aa; }.score-card small { color: #a2a6b5; }
+.keyboard-key {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  z-index: 5;
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255,255,255,.95);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #4f5d8d;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  box-shadow: 0 5px 12px rgba(65,76,118,.18);
+}
+
+.keyboard-help {
+  position: absolute;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 45;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.68);
+  backdrop-filter: blur(10px);
+  color: #858da4;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.keyboard-help kbd {
+  min-width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  margin-right: 4px;
+  border: 1px solid rgba(121,132,170,.15);
+  border-radius: 7px;
+  background: #fff;
+  color: #59658e;
+  font-family: inherit;
+  font-weight: 800;
+  box-shadow: 0 2px 5px rgba(91,112,166,.08);
+}
+
+@media (max-width: 520px) {
+  .keyboard-help { bottom: max(70px, env(safe-area-inset-bottom)); }
+  .keyboard-help span:nth-child(3) { display: none; }
+}
+
 @media (max-height: 620px) {
   .brand-mark { width: 82px; height: 82px; margin-bottom: 10px; }.brand-mark span { font-size: 48px; }
   .start-copy h1 { font-size: 38px; }.start-copy p:not(.eyebrow) { margin: 7px auto 12px; }
